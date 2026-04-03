@@ -30,6 +30,44 @@ typedef struct packed {
 	logic [4:0] writeReg;
 } wb_ctrl_t;
 
+////////////////////////////
+// Pipeline Stage Buffers //
+////////////////////////////
+
+typedef struct packed {
+	logic [31:0] pc;
+	logic [31:0] instruction;
+	logic [31:0] instrAddr;
+} if_id_buf_t;
+
+typedef struct packed {
+	logic [31:0] pc;
+	logic [31:0] rdData1;
+	logic [31:0] rdData2;
+	logic [31:0] immediate;
+	ex_ctrl_t ex;
+	mem_ctrl_t mem;
+	wb_ctrl_t wb;
+} id_ex_buf_t;
+
+typedef struct packed {
+	logic [31:0] branchTarget;
+	logic [31:0] aluResult;
+	logic [31:0] storeData;
+	logic zero;
+	mem_ctrl_t mem;
+	mem_ctrl_t vga;
+	wb_ctrl_t wb;
+} ex_mem_buf_t;
+
+typedef struct packed {
+	logic [31:0] readData;
+	logic [31:0] aluResult;
+	logic pcSrc;
+	logic [31:0] instrWord;
+	wb_ctrl_t wb;
+} mem_wb_buf_t;
+
 
 // Control Signal Definitions
 `define OPCODE  i_instr[6:0]

@@ -22,33 +22,36 @@ module top (
         );
     `endif
 
-    // Internal signals
+    // Internal stage-control signals
     logic PCSrc;
-    logic [31:0] mem_instr;
-    logic [31:0] mem_instrAddr;
-
-    logic [31:0] inAddr;
-    logic [31:0] instruction;
-    logic [31:0] immediate;
-    logic [31:0] regData1;
-    logic [31:0] regData2;
-
-    logic zero;
     logic [31:0] wrData;
-    logic [31:0] outAddr;
 
-    logic [31:0] resultALU;
-    logic [31:0] readData;
+    // Pipeline-visible stage wires
+    logic [31:0] if_pc;
+    logic [31:0] if_instruction;
+    logic [31:0] if_instrAddr;
 
-    // Control Signals
-    ex_ctrl_t ex;
-    wb_ctrl_t wb;
+    logic [31:0] id_rdData1;
+    logic [31:0] id_rdData2;
+    logic [31:0] id_immediate;
+    ex_ctrl_t id_ctrlEX;
+    mem_ctrl_t id_ctrlMEM;
+    wb_ctrl_t id_ctrlWB;
 
-    // Memory Routing Signals
-    mem_ctrl_t mem;
-    mem_ctrl_t ctrlMEM;
-    mem_ctrl_t ctrlVGA;
+    logic [31:0] ex_branchTarget;
+    logic ex_zero;
+    logic [31:0] ex_resultALU;
+    mem_ctrl_t ex_ctrlMEM;
+    mem_ctrl_t ex_ctrlVGA;
 
+    logic [31:0] mem_readData;
+    logic [31:0] mem_if_instr;
+
+    // Explicit stage buffers for future pipelining work
+    if_id_buf_t if_id_q;
+    id_ex_buf_t id_ex_q;
+    ex_mem_buf_t ex_mem_q;
+    mem_wb_buf_t mem_wb_q;
 
     // Clocking
     (* max_fanout = 20 *)
@@ -75,7 +78,7 @@ module top (
 
     top_en enable
         (
-            .i_clk    	(clk),
+            .i_clk     	(clk),
             .i_reset_n	(reset_n),
             .stall_IF   (stall_IF),
             .stall_ID   (stall_ID),
@@ -94,75 +97,117 @@ module top (
             .i_clk        		(clk),
             .i_reset_n    		(reset_n),
             .i_PCSrc      		(PCSrc),
-            .i_inAddr     		(outAddr),
-            .i_mem_instr  		(mem_instr),
+            .i_inAddr     		(ex_mem_q.branchTarget),
+            .i_mem_instr  		(mem_wb_q.instrWord),
             .en_WB        		(en_WB),
-            .o_outAddr    		(inAddr),
-            .o_instruction		(instruction),
-            .o_mem_instrAddr	(mem_instrAddr)
+            .o_outAddr    		(if_pc),
+            .o_instruction		(if_instruction),
+            .o_mem_instrAddr	(if_instrAddr)
         );
 
     id_top ID
         (
             .i_clk          (clk),
             .i_reset_n      (reset_n),
-            .i_instr        (instruction),
-            .i_wrSig        (wb.regWrite),
-            .i_wrReg        (wb.writeReg),
+            .i_instr        (if_id_q.instruction),
+            .i_wrSig        (mem_wb_q.wb.regWrite),
+            .i_wrReg        (mem_wb_q.wb.writeReg),
             .i_wrData       (wrData),
             .en_ID 			(en_ID),
             .en_WB        	(en_WB),
-            .o_rdData1      (regData1),
-            .o_rdData2      (regData2),
-            .o_immediate    (immediate),
-            .o_ctrlEX       (ex),
-            .o_ctrlMEM      (mem),
-            .o_ctrlWB       (wb)
+            .o_rdData1      (id_rdData1),
+            .o_rdData2      (id_rdData2),
+            .o_immediate    (id_immediate),
+            .o_ctrlEX       (id_ctrlEX),
+            .o_ctrlMEM      (id_ctrlMEM),
+            .o_ctrlWB       (id_ctrlWB)
         );
 
     ex_top EX
         (
         	.i_clk		   	(clk),
         	.i_reset_n		(reset_n),
-            .i_inAddr      	(inAddr),
-            .i_regData1    	(regData1),
-            .i_regData2    	(regData2),
-            .i_immediate   	(immediate),
-            .i_ctrlEX      	(ex),
-            .i_ctrlMEM     	(mem),
+            .i_inAddr      	(id_ex_q.pc),
+            .i_regData1    	(id_ex_q.rdData1),
+            .i_regData2    	(id_ex_q.rdData2),
+            .i_immediate   	(id_ex_q.immediate),
+            .i_ctrlEX      	(id_ex_q.ex),
+            .i_ctrlMEM     	(id_ex_q.mem),
             .en_EX      	(en_EX),
-            .o_outAddr     	(outAddr),
-            .o_zero        	(zero),
-            .o_resultALU   	(resultALU),
-            .o_ctrlMEM      (ctrlMEM),
-            .o_ctrlVGA      (ctrlVGA)
+            .o_outAddr     	(ex_branchTarget),
+            .o_zero        	(ex_zero),
+            .o_resultALU   	(ex_resultALU),
+            .o_ctrlMEM      (ex_ctrlMEM),
+            .o_ctrlVGA      (ex_ctrlVGA)
         );
 
     mem_top MEM
         (
             .i_clk          (clk),
             .i_reset_n      (reset_n),
-            .i_memAddr      (resultALU),
-            .i_if_instrAddr (mem_instrAddr),
-            .i_wrData       (regData2),
-            .i_ctrlMEM      (ctrlMEM),
-            .i_zero         (zero),
+            .i_memAddr      (ex_mem_q.aluResult),
+            .i_if_instrAddr (if_id_q.instrAddr),
+            .i_wrData       (ex_mem_q.storeData),
+            .i_ctrlMEM      (ex_mem_q.mem),
+            .i_zero         (ex_mem_q.zero),
             .en_IF          (en_IF),
             .en_MEM         (en_MEM),
             .en_WB          (en_WB),
-            .o_readData     (readData),
-            .o_if_instr     (mem_instr),
+            .o_readData     (mem_readData),
+            .o_if_instr     (mem_if_instr),
             .o_PCSrc        (PCSrc)
         );
 
     wb_top WB
         (
-            .i_ctrlWB     (wb.memToReg),
-            .i_readData   (readData),
-            .i_resultALU  (resultALU),
+            .i_ctrlWB     (mem_wb_q.wb.memToReg),
+            .i_readData   (mem_wb_q.readData),
+            .i_resultALU  (mem_wb_q.aluResult),
             .o_wrData     (wrData)
         );
 
+    always_ff @(posedge clk) begin
+        if (~reset_n) begin
+            if_id_q <= '0;
+            id_ex_q <= '0;
+            ex_mem_q <= '0;
+            mem_wb_q <= '0;
+        end else begin
+            if (en_IF) begin
+                if_id_q.pc <= if_pc;
+                if_id_q.instruction <= if_instruction;
+                if_id_q.instrAddr <= if_instrAddr;
+            end
+
+            if (en_ID) begin
+                id_ex_q.pc <= if_id_q.pc;
+                id_ex_q.rdData1 <= id_rdData1;
+                id_ex_q.rdData2 <= id_rdData2;
+                id_ex_q.immediate <= id_immediate;
+                id_ex_q.ex <= id_ctrlEX;
+                id_ex_q.mem <= id_ctrlMEM;
+                id_ex_q.wb <= id_ctrlWB;
+            end
+
+            if (en_EX) begin
+                ex_mem_q.branchTarget <= ex_branchTarget;
+                ex_mem_q.aluResult <= ex_resultALU;
+                ex_mem_q.storeData <= id_ex_q.rdData2;
+                ex_mem_q.zero <= ex_zero;
+                ex_mem_q.mem <= ex_ctrlMEM;
+                ex_mem_q.vga <= ex_ctrlVGA;
+                ex_mem_q.wb <= id_ex_q.wb;
+            end
+
+            if (en_MEM) begin
+                mem_wb_q.readData <= mem_readData;
+                mem_wb_q.aluResult <= ex_mem_q.aluResult;
+                mem_wb_q.pcSrc <= PCSrc;
+                mem_wb_q.instrWord <= mem_if_instr;
+                mem_wb_q.wb <= ex_mem_q.wb;
+            end
+        end
+    end
 
 
     // VGA output circuit
@@ -171,9 +216,9 @@ module top (
             .i_clk          (clk),
             .i_vga_clk      (vga_clk),
             .i_reset_n      (reset_n),
-            .i_pxlAddr      (resultALU),
-            .i_pxlData      (regData2),
-            .i_ctrlVGA      (ctrlVGA),
+            .i_pxlAddr      (ex_mem_q.aluResult),
+            .i_pxlData      (ex_mem_q.storeData),
+            .i_ctrlVGA      (ex_mem_q.vga),
             .en_MEM   		(en_MEM),
             .o_vgaData      (vgaData)
         );

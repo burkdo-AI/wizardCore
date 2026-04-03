@@ -1,0 +1,40 @@
+# Pipeline buffering plan
+
+This fork is an isolated agentic workflow experiment and is intentionally **not** meant for upstream merge.
+
+## Goal
+
+Track the datapath and control signals explicitly across stage boundaries so the current staged multi-cycle core can evolve toward a conventional 5-stage pipeline.
+
+## First-pass changes in this fork
+
+- Added explicit packed structs for stage boundary buffers:
+  - `if_id_buf_t`
+  - `id_ex_buf_t`
+  - `ex_mem_buf_t`
+  - `mem_wb_buf_t`
+- Reworked `src/TOP/top.sv` so inter-stage data is routed through those named buffers.
+- Preserved the current stage modules as much as possible so behavior stays close to the original design while visibility improves.
+
+## Why this helps
+
+The original design already had some local output buffering inside stage modules, but top-level signal flow still crossed stage boundaries as loose wires. That makes future hazard handling, flushing, bypassing, and pipeline validation harder to reason about.
+
+These explicit structs make it easier to:
+
+- identify exactly what each stage produces and consumes
+- add per-stage valid/flush/stall semantics later
+- inspect waveform groupings by stage boundary
+- introduce forwarding / hazard detection with less ad-hoc wiring
+
+## Likely next steps
+
+1. Add `valid` bits to each pipeline buffer struct.
+2. Separate branch/jump redirect timing from MEM/WB-facing instruction fetch return data.
+3. Move writeback control/data fully onto `mem_wb_q` semantics and audit register-file timing.
+4. Add a hazard/flush unit for control-flow changes.
+5. Add a waveform/debug view that dumps the pipeline structs cleanly in simulation.
+
+## Notes
+
+This is a first structural pass, not a finished pipelined CPU. The current aim is signal ownership and buffering clarity.
