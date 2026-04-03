@@ -53,6 +53,18 @@ These explicit structs make it easier to:
 - Added a dedicated `fetch_instr_q` path so IF consumes fetched instruction data without depending on writeback-stage buffering.
 - This reduces one of the major structural mismatches between current staged execution and future pipelined ownership.
 
+## Fifth-pass changes in this fork
+
+- Added a reusable `pipeline_reg` module in `src/COM/pipeline_reg.sv`.
+- Replaced the hand-written top-level stage-buffer `always_ff` logic for IF/ID, ID/EX, EX/MEM, and MEM/WB with explicit pipeline-register instances.
+- This begins centralizing enable/flush/reset behavior at the stage boundaries, which is a better fit for future stalls/bubbles/hazard work.
+
+## Sixth-pass changes in this fork
+
+- Removed stage-local output buffering from `src/2_ID/id_top.sv`.
+- `id_top` now behaves more like a decode/data-producing stage feeding the dedicated ID/EX pipeline register, rather than buffering its own outputs internally.
+- This is the first concrete move toward making stage boundaries the single owner of inter-stage state.
+
 ## Notes
 
 This is a first structural pass, not a finished pipelined CPU. The current aim is signal ownership and buffering clarity.
