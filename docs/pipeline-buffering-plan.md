@@ -71,6 +71,12 @@ These explicit structs make it easier to:
 - `ex_top` now produces ALU/branch-routing outputs combinationally and relies on the dedicated EX/MEM pipeline register to own inter-stage buffering.
 - This further reduces double-buffering between stage internals and the explicit pipeline-register layer.
 
+## Eighth-pass changes in this fork
+
+- Removed stage-local PC redirect buffering from `src/4_MEM/mem_top.sv`.
+- `mem_top` now produces `o_PCSrc` combinationally while continuing to use `mem_memory` for memory-side sequencing.
+- This further aligns MEM with the model of "stage logic produces outputs, pipeline/boundary logic owns inter-stage state".
+
 ## Notes
 
 This is a first structural pass, not a finished pipelined CPU. The current aim is signal ownership and buffering clarity.
