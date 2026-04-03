@@ -65,6 +65,12 @@ These explicit structs make it easier to:
 - `id_top` now behaves more like a decode/data-producing stage feeding the dedicated ID/EX pipeline register, rather than buffering its own outputs internally.
 - This is the first concrete move toward making stage boundaries the single owner of inter-stage state.
 
+## Seventh-pass changes in this fork
+
+- Removed stage-local output buffering from `src/3_EX/ex_top.sv`.
+- `ex_top` now produces ALU/branch-routing outputs combinationally and relies on the dedicated EX/MEM pipeline register to own inter-stage buffering.
+- This further reduces double-buffering between stage internals and the explicit pipeline-register layer.
+
 ## Notes
 
 This is a first structural pass, not a finished pipelined CPU. The current aim is signal ownership and buffering clarity.
