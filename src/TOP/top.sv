@@ -24,6 +24,7 @@ module top (
 
     // Internal stage-control signals
     logic PCSrc;
+    logic redirect_flush;
     logic [31:0] wrData;
 
     // Pipeline-visible stage wires
@@ -166,6 +167,10 @@ module top (
             .o_wrData     (wrData)
         );
 
+    always_comb begin
+        redirect_flush = en_MEM && ex_mem_q.valid && PCSrc;
+    end
+
     always_ff @(posedge clk) begin
         if (~reset_n) begin
             if_id_q <= '0;
@@ -173,37 +178,43 @@ module top (
             ex_mem_q <= '0;
             mem_wb_q <= '0;
         end else begin
-            if (en_IF) begin
-                if_id_q.valid <= 1'b1;
-                if_id_q.pc <= if_pc;
-                if_id_q.instruction <= if_instruction;
-                if_id_q.instrAddr <= if_instrAddr;
-            end
-
-            if (en_ID) begin
-                id_ex_q.valid <= if_id_q.valid;
-                id_ex_q.pc <= if_id_q.pc;
-                id_ex_q.rdData1 <= id_rdData1;
-                id_ex_q.rdData2 <= id_rdData2;
-                id_ex_q.immediate <= id_immediate;
-                id_ex_q.ex <= id_ctrlEX;
-                id_ex_q.mem <= id_ctrlMEM;
-                id_ex_q.wb <= id_ctrlWB;
-            end else begin
+            if (redirect_flush) begin
+                if_id_q.valid <= 1'b0;
                 id_ex_q.valid <= 1'b0;
-            end
-
-            if (en_EX) begin
-                ex_mem_q.valid <= id_ex_q.valid;
-                ex_mem_q.branchTarget <= ex_branchTarget;
-                ex_mem_q.aluResult <= ex_resultALU;
-                ex_mem_q.storeData <= id_ex_q.rdData2;
-                ex_mem_q.zero <= ex_zero;
-                ex_mem_q.mem <= ex_ctrlMEM;
-                ex_mem_q.vga <= ex_ctrlVGA;
-                ex_mem_q.wb <= id_ex_q.wb;
-            end else begin
                 ex_mem_q.valid <= 1'b0;
+            end else begin
+                if (en_IF) begin
+                    if_id_q.valid <= 1'b1;
+                    if_id_q.pc <= if_pc;
+                    if_id_q.instruction <= if_instruction;
+                    if_id_q.instrAddr <= if_instrAddr;
+                end
+
+                if (en_ID) begin
+                    id_ex_q.valid <= if_id_q.valid;
+                    id_ex_q.pc <= if_id_q.pc;
+                    id_ex_q.rdData1 <= id_rdData1;
+                    id_ex_q.rdData2 <= id_rdData2;
+                    id_ex_q.immediate <= id_immediate;
+                    id_ex_q.ex <= id_ctrlEX;
+                    id_ex_q.mem <= id_ctrlMEM;
+                    id_ex_q.wb <= id_ctrlWB;
+                end else begin
+                    id_ex_q.valid <= 1'b0;
+                end
+
+                if (en_EX) begin
+                    ex_mem_q.valid <= id_ex_q.valid;
+                    ex_mem_q.branchTarget <= ex_branchTarget;
+                    ex_mem_q.aluResult <= ex_resultALU;
+                    ex_mem_q.storeData <= id_ex_q.rdData2;
+                    ex_mem_q.zero <= ex_zero;
+                    ex_mem_q.mem <= ex_ctrlMEM;
+                    ex_mem_q.vga <= ex_ctrlVGA;
+                    ex_mem_q.wb <= id_ex_q.wb;
+                end else begin
+                    ex_mem_q.valid <= 1'b0;
+                end
             end
 
             if (en_MEM) begin

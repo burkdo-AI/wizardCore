@@ -41,6 +41,12 @@ These explicit structs make it easier to:
 - Propagated buffer validity through `top.sv` so each stage boundary now has an explicit occupancy bit.
 - Gated downstream control use with those validity bits to reduce accidental consumption of stale control signals.
 
+## Third-pass changes in this fork
+
+- Added a simple redirect-driven flush path in `top.sv`.
+- When MEM resolves a taken branch/jump (`PCSrc` while `ex_mem_q.valid`), younger buffered stages are invalidated.
+- This is intentionally minimal, but it gives the design an explicit bubble/flush concept instead of relying only on enable timing.
+
 ## Notes
 
 This is a first structural pass, not a finished pipelined CPU. The current aim is signal ownership and buffering clarity.
