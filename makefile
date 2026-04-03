@@ -19,7 +19,7 @@ VER_FLAGS 	:= $(INC_FLAGS) -Isrc --binary --trace  $(DEF_FLAGS)
 all: build
 
 build:
-	verilator $(VER_FLAGS) $(TESTBENCH) $(SRC_DIR)/COM/macro.sv
+	verilator $(VER_FLAGS) $(TESTBENCH) $(SRC_DIR)/COM/macro.sv $(SRC_DIR)/COM/pipeline_reg.sv
 
 sim: build
 	cd $(OUT_DIR) && ../obj_dir/$(TOP)

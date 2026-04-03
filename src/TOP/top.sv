@@ -50,9 +50,13 @@ module top (
     logic [31:0] fetch_instr_q;
 
     // Explicit stage buffers for future pipelining work
+    if_id_buf_t if_id_d;
     if_id_buf_t if_id_q;
+    id_ex_buf_t id_ex_d;
     id_ex_buf_t id_ex_q;
+    ex_mem_buf_t ex_mem_d;
     ex_mem_buf_t ex_mem_q;
+    mem_wb_buf_t mem_wb_d;
     mem_wb_buf_t mem_wb_q;
 
     // Clocking
@@ -170,69 +174,95 @@ module top (
 
     always_comb begin
         redirect_flush = en_MEM && ex_mem_q.valid && PCSrc;
+
+        if_id_d = if_id_q;
+        if_id_d.valid = 1'b1;
+        if_id_d.pc = if_pc;
+        if_id_d.instruction = if_instruction;
+        if_id_d.instrAddr = if_instrAddr;
+
+        id_ex_d = id_ex_q;
+        id_ex_d.valid = if_id_q.valid;
+        id_ex_d.pc = if_id_q.pc;
+        id_ex_d.rdData1 = id_rdData1;
+        id_ex_d.rdData2 = id_rdData2;
+        id_ex_d.immediate = id_immediate;
+        id_ex_d.ex = id_ctrlEX;
+        id_ex_d.mem = id_ctrlMEM;
+        id_ex_d.wb = id_ctrlWB;
+
+        ex_mem_d = ex_mem_q;
+        ex_mem_d.valid = id_ex_q.valid;
+        ex_mem_d.branchTarget = ex_branchTarget;
+        ex_mem_d.aluResult = ex_resultALU;
+        ex_mem_d.storeData = id_ex_q.rdData2;
+        ex_mem_d.zero = ex_zero;
+        ex_mem_d.mem = ex_ctrlMEM;
+        ex_mem_d.vga = ex_ctrlVGA;
+        ex_mem_d.wb = id_ex_q.wb;
+
+        mem_wb_d = mem_wb_q;
+        mem_wb_d.valid = ex_mem_q.valid;
+        mem_wb_d.readData = mem_readData;
+        mem_wb_d.aluResult = ex_mem_q.aluResult;
+        mem_wb_d.pcSrc = PCSrc;
+        mem_wb_d.instrWord = mem_if_instr;
+        mem_wb_d.wb = ex_mem_q.wb;
     end
+
+    pipeline_reg #(
+        .T(if_id_buf_t),
+        .RESET_VALUE('0)
+    ) IF_ID_REG (
+        .i_clk      (clk),
+        .i_reset_n  (reset_n),
+        .i_en       (en_IF),
+        .i_flush    (redirect_flush),
+        .i_d        (if_id_d),
+        .o_q        (if_id_q)
+    );
+
+    pipeline_reg #(
+        .T(id_ex_buf_t),
+        .RESET_VALUE('0)
+    ) ID_EX_REG (
+        .i_clk      (clk),
+        .i_reset_n  (reset_n),
+        .i_en       (en_ID),
+        .i_flush    (redirect_flush),
+        .i_d        (id_ex_d),
+        .o_q        (id_ex_q)
+    );
+
+    pipeline_reg #(
+        .T(ex_mem_buf_t),
+        .RESET_VALUE('0)
+    ) EX_MEM_REG (
+        .i_clk      (clk),
+        .i_reset_n  (reset_n),
+        .i_en       (en_EX),
+        .i_flush    (redirect_flush),
+        .i_d        (ex_mem_d),
+        .o_q        (ex_mem_q)
+    );
+
+    pipeline_reg #(
+        .T(mem_wb_buf_t),
+        .RESET_VALUE('0)
+    ) MEM_WB_REG (
+        .i_clk      (clk),
+        .i_reset_n  (reset_n),
+        .i_en       (en_MEM),
+        .i_flush    (1'b0),
+        .i_d        (mem_wb_d),
+        .o_q        (mem_wb_q)
+    );
 
     always_ff @(posedge clk) begin
         if (~reset_n) begin
-            if_id_q <= '0;
-            id_ex_q <= '0;
-            ex_mem_q <= '0;
-            mem_wb_q <= '0;
             fetch_instr_q <= '0;
-        end else begin
-            if (redirect_flush) begin
-                if_id_q.valid <= 1'b0;
-                id_ex_q.valid <= 1'b0;
-                ex_mem_q.valid <= 1'b0;
-            end else begin
-                if (en_IF) begin
-                    if_id_q.valid <= 1'b1;
-                    if_id_q.pc <= if_pc;
-                    if_id_q.instruction <= if_instruction;
-                    if_id_q.instrAddr <= if_instrAddr;
-                end
-
-                if (en_ID) begin
-                    id_ex_q.valid <= if_id_q.valid;
-                    id_ex_q.pc <= if_id_q.pc;
-                    id_ex_q.rdData1 <= id_rdData1;
-                    id_ex_q.rdData2 <= id_rdData2;
-                    id_ex_q.immediate <= id_immediate;
-                    id_ex_q.ex <= id_ctrlEX;
-                    id_ex_q.mem <= id_ctrlMEM;
-                    id_ex_q.wb <= id_ctrlWB;
-                end else begin
-                    id_ex_q.valid <= 1'b0;
-                end
-
-                if (en_EX) begin
-                    ex_mem_q.valid <= id_ex_q.valid;
-                    ex_mem_q.branchTarget <= ex_branchTarget;
-                    ex_mem_q.aluResult <= ex_resultALU;
-                    ex_mem_q.storeData <= id_ex_q.rdData2;
-                    ex_mem_q.zero <= ex_zero;
-                    ex_mem_q.mem <= ex_ctrlMEM;
-                    ex_mem_q.vga <= ex_ctrlVGA;
-                    ex_mem_q.wb <= id_ex_q.wb;
-                end else begin
-                    ex_mem_q.valid <= 1'b0;
-                end
-            end
-
-            if (en_IF) begin
-                fetch_instr_q <= mem_if_instr;
-            end
-
-            if (en_MEM) begin
-                mem_wb_q.valid <= ex_mem_q.valid;
-                mem_wb_q.readData <= mem_readData;
-                mem_wb_q.aluResult <= ex_mem_q.aluResult;
-                mem_wb_q.pcSrc <= PCSrc;
-                mem_wb_q.instrWord <= mem_if_instr;
-                mem_wb_q.wb <= ex_mem_q.wb;
-            end else begin
-                mem_wb_q.valid <= 1'b0;
-            end
+        end else if (en_IF) begin
+            fetch_instr_q <= mem_if_instr;
         end
     end
 
