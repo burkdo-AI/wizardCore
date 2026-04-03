@@ -47,6 +47,7 @@ module top (
 
     logic [31:0] mem_readData;
     logic [31:0] mem_if_instr;
+    logic [31:0] fetch_instr_q;
 
     // Explicit stage buffers for future pipelining work
     if_id_buf_t if_id_q;
@@ -99,7 +100,7 @@ module top (
             .i_reset_n    		(reset_n),
             .i_PCSrc      		(PCSrc),
             .i_inAddr     		(ex_mem_q.branchTarget),
-            .i_mem_instr  		(mem_wb_q.instrWord),
+            .i_mem_instr  		(fetch_instr_q),
             .en_WB        		(en_WB),
             .o_outAddr    		(if_pc),
             .o_instruction		(if_instruction),
@@ -177,6 +178,7 @@ module top (
             id_ex_q <= '0;
             ex_mem_q <= '0;
             mem_wb_q <= '0;
+            fetch_instr_q <= '0;
         end else begin
             if (redirect_flush) begin
                 if_id_q.valid <= 1'b0;
@@ -215,6 +217,10 @@ module top (
                 end else begin
                     ex_mem_q.valid <= 1'b0;
                 end
+            end
+
+            if (en_IF) begin
+                fetch_instr_q <= mem_if_instr;
             end
 
             if (en_MEM) begin

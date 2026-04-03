@@ -47,6 +47,12 @@ These explicit structs make it easier to:
 - When MEM resolves a taken branch/jump (`PCSrc` while `ex_mem_q.valid`), younger buffered stages are invalidated.
 - This is intentionally minimal, but it gives the design an explicit bubble/flush concept instead of relying only on enable timing.
 
+## Fourth-pass changes in this fork
+
+- Separated fetch-return instruction ownership from MEM/WB state in `top.sv`.
+- Added a dedicated `fetch_instr_q` path so IF consumes fetched instruction data without depending on writeback-stage buffering.
+- This reduces one of the major structural mismatches between current staged execution and future pipelined ownership.
+
 ## Notes
 
 This is a first structural pass, not a finished pipelined CPU. The current aim is signal ownership and buffering clarity.
