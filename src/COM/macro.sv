@@ -35,12 +35,14 @@ typedef struct packed {
 ////////////////////////////
 
 typedef struct packed {
+	logic valid;
 	logic [31:0] pc;
 	logic [31:0] instruction;
 	logic [31:0] instrAddr;
 } if_id_buf_t;
 
 typedef struct packed {
+	logic valid;
 	logic [31:0] pc;
 	logic [31:0] rdData1;
 	logic [31:0] rdData2;
@@ -51,6 +53,7 @@ typedef struct packed {
 } id_ex_buf_t;
 
 typedef struct packed {
+	logic valid;
 	logic [31:0] branchTarget;
 	logic [31:0] aluResult;
 	logic [31:0] storeData;
@@ -61,6 +64,7 @@ typedef struct packed {
 } ex_mem_buf_t;
 
 typedef struct packed {
+	logic valid;
 	logic [31:0] readData;
 	logic [31:0] aluResult;
 	logic pcSrc;

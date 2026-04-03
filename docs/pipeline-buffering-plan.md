@@ -29,11 +29,17 @@ These explicit structs make it easier to:
 
 ## Likely next steps
 
-1. Add `valid` bits to each pipeline buffer struct.
-2. Separate branch/jump redirect timing from MEM/WB-facing instruction fetch return data.
-3. Move writeback control/data fully onto `mem_wb_q` semantics and audit register-file timing.
-4. Add a hazard/flush unit for control-flow changes.
-5. Add a waveform/debug view that dumps the pipeline structs cleanly in simulation.
+1. Separate branch/jump redirect timing from MEM/WB-facing instruction fetch return data.
+2. Move writeback control/data fully onto `mem_wb_q` semantics and audit register-file timing.
+3. Add a hazard/flush unit for control-flow changes.
+4. Add a waveform/debug view that dumps the pipeline structs cleanly in simulation.
+5. Audit stage-local output buffering versus top-level pipeline-buffer ownership.
+
+## Second-pass changes in this fork
+
+- Added `valid` bits to all stage boundary buffer structs.
+- Propagated buffer validity through `top.sv` so each stage boundary now has an explicit occupancy bit.
+- Gated downstream control use with those validity bits to reduce accidental consumption of stale control signals.
 
 ## Notes
 
